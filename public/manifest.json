@@ -1,0 +1,10 @@
+{
+  "name": "ALL×PROJECT V8",
+  "short_name": "ALL×PROJECT",
+  "description": "A secure, multi-device workspace for AI, productivity, learning and more.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b1020",
+  "theme_color": "#0b1020",
+  "icons": []
+}
