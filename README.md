@@ -1,48 +1,35 @@
 # ALL×PROJECT V8
 
-A full-stack application foundation with working database-backed registration/login sessions and a server-side ULTRA multi-provider chat route. It is not yet a production-complete implementation of every requested ALL×PROJECT feature; use the feature status honestly and follow the hardening checklist below.
+Full-stack application under active development. Current work adds database-backed account/AI foundations plus developer member actions, session management, account notifications, active-use measurement and the schema groundwork for secure file handling, voice stickers and guarded developer approvals.
 
-## Implemented in this repository
+## Implemented code paths
 
-- Responsive, accessible landing/workspace UI and PWA manifest.
-- Email/password registration and login using bcrypt password hashes, HTTP-only `SameSite=Lax` session cookies, hashed session tokens, revocation on logout, login history, and basic audit events.
-- Prisma/PostgreSQL models for users, roles/permissions, sessions, login events, audit events, AI conversation history, and usage.
-- ULTRA server route with provider adapters for OpenAI, Google Gemini OpenAI-compatible endpoint, Anthropic Messages, xAI, DeepSeek and GitHub Models. API credentials are read from server environment only. The UI/API reports whether credentials are configured; configured does not mean provider health has been verified.
-- Authenticated AI calls persist owned conversation messages and usage events, validate input, apply timeout and a per-process rate limit, and allow provider fallback.
-- Health endpoint reports configuration without claiming that the database or integrations were successfully contacted.
+- Responsive workspace shell and PWA manifest.
+- Email/password registration and login, bcrypt password hashes, HTTP-only `SameSite=Lax` sessions, hashed session tokens, login history and audit entries.
+- PostgreSQL/Prisma relational schema for accounts, roles/permissions, sessions, audit, ULTRA chat history, usage, role policy/history, notifications, push subscription records, storage metadata, voice stickers, feature registry and developer approvals.
+- ULTRA server route with OpenAI, Google, Anthropic, xAI, DeepSeek and GitHub Models adapters; provider keys remain server-side; persisted conversation ownership; timeouts and fallback.
+- Developer API for member search/filter and audited status/role changes with backend role checks.
+- Account session list, revoke-this/revoke-all, notification inbox/read state, and capped active usage heartbeats.
 
-## Not production-ready yet
+## Important deployment boundary
 
-Email verification, password reset/recovery, MFA, secure file/object storage, push delivery, role-progression jobs, full developer control panel, permission management endpoints, auto-fix patch execution, voice stickers, licensed music, the remaining feature categories, native Android/iOS builds, and complete unit/integration/e2e/security tests are not implemented. Rate limiting currently lives in process memory and is unsuitable for horizontally scaled/serverless production. Provider APIs/models change; verify current provider access and model availability before launch. Do not label this system production-ready until these gaps are implemented and tested.
+This is not yet a production-complete system. A new database migration must be reviewed and applied before using the latest schema. Run `npm run db:migrate` locally and commit the reviewed migration. No migration or automated test/build was run by this GitHub edit workflow.
 
-## Setup
+Some requested features remain unimplemented: email verification/recovery/MFA, configurable durable rate limiting, developer dashboard UI, complete permission administration and seeded roles/permissions, secure object-storage upload/download, push delivery, voice-sticker moderation/playback, role-progression worker, safe AUTO-FIX pipeline, music player with licensed audio, remaining feature categories, native APK packaging, and comprehensive test suite. See `FEATURE_REGISTRY.md`.
 
-Requirements: Node.js 20+, PostgreSQL, npm.
+Never claim all features are production-ready until each registry row has tests and deployment evidence. Provider keys belong in a server secret manager, not client bundles. Use HTTPS, database backups and restore drills, monitoring, CI security scans, spend controls and a shared rate-limit backend before public deployment.
 
-1. Copy `.env.example` to `.env`.
-2. Set `DATABASE_URL` to a PostgreSQL database and set a long random `SESSION_SECRET` (for example, generate 32+ random bytes).
-3. Run `npm install`.
-4. Run `npm run db:generate`.
-5. Create/apply a local schema migration using `npm run db:migrate`.
-6. Run `npm run dev`.
-7. Optional: configure one or more AI provider credentials in the server environment. Never prefix secrets with `NEXT_PUBLIC_` and never put them into client code.
+## Local setup
 
-New accounts are created as `ACTIVE` and assigned the `MEMBER` role. Configure role seeding, abuse controls, email verification, and operator bootstrap before public signup. Avoid creating a public developer-registration route.
+Requirements: Node.js 20+, npm and PostgreSQL.
 
-## Production hardening gate
+1. Copy `.env.example` to `.env`; configure `DATABASE_URL` and a long random `SESSION_SECRET`.
+2. Run `npm install`.
+3. Run `npm run db:generate`.
+4. Review/apply a schema migration with `npm run db:migrate`.
+5. Run `npm run dev`.
+6. Configure desired provider API keys only in the server environment. A key being configured is not a successful provider health check.
 
-- Use managed PostgreSQL with encrypted connections, migration review, backups and restore drills.
-- Replace process-local rate limits with a shared store; add signup/login abuse controls and account recovery.
-- Configure a stable HTTPS origin, secure cookie policy, secret manager and key rotation.
-- Add provider health checks, spend limits, moderation policy and robust provider-specific error handling.
-- Add authorization-checked admin routes, developer bootstrap, ban/unban history and role policy tests.
-- Add file scanning/private object storage, notification provider, and data retention/privacy policy before enabling those features.
-- Build native Android/iOS packaging only after choosing and testing a supported wrapper/toolchain.
-- Run lint, typecheck, unit, integration, auth/RBAC, API, responsive and security tests in CI. No test/build has been run by the GitHub file-edit tool for this change.
+## Quality gate
 
-## Quality commands
-
-- `npm run lint`
-- `npm run typecheck`
-- `npm run build`
-- `npm run db:migrate`
+Run `npm run lint`, `npm run typecheck`, `npm run build`, and database migration checks, then add and run unit/integration/API/auth/RBAC/UI/security tests in CI. The current edit tool cannot run these checks, so build health must be verified in GitHub Actions or a local environment before release.

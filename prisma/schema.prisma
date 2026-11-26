@@ -24,25 +24,42 @@ enum FeatureStatus {
   DISABLED
 }
 
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  APPLIED
+}
+
 model User {
-  id           String        @id @default(cuid())
-  email        String        @unique
-  username     String        @unique
-  displayName  String
-  passwordHash String
-  status       AccountStatus @default(PENDING)
-  roleId       String?
-  role         Role?         @relation(fields: [roleId], references: [id], onDelete: SetNull)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  lastLoginAt  DateTime?
-  sessions     Session[]
-  loginEvents  LoginEvent[]
-  auditEvents  AuditLog[]
-  conversations Conversation[]
-  usageEvents  UsageEvent[]
+  id                 String          @id @default(cuid())
+  email              String          @unique
+  username           String          @unique
+  displayName        String
+  avatarUrl          String?
+  passwordHash       String
+  status             AccountStatus   @default(PENDING)
+  roleId             String?
+  role               Role?           @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  lastLoginAt        DateTime?
+  emailVerifiedAt    DateTime?
+  sessions           Session[]
+  loginEvents        LoginEvent[]
+  auditEvents        AuditLog[]
+  conversations      Conversation[]
+  usageEvents        UsageEvent[]
+  activeUsage        ActiveUsageSession[]
+  roleChanges        RoleHistory[]    @relation("RoleTarget")
+  roleChangesMade    RoleHistory[]    @relation("RoleActor")
+  notifications      Notification[]
+  pushSubscriptions  PushSubscription[]
+  storageAssets      StorageAsset[]
+  voiceStickers      VoiceSticker[]
 
   @@index([status, createdAt])
+  @@index([roleId, status])
 }
 
 model Role {
@@ -72,16 +89,17 @@ model RolePermission {
 }
 
 model Session {
-  id          String    @id @default(cuid())
+  id          String               @id @default(cuid())
   userId      String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokenHash   String    @unique
+  user        User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash   String               @unique
   deviceLabel String?
   userAgent   String?
-  createdAt   DateTime  @default(now())
-  lastSeenAt  DateTime  @default(now())
+  createdAt   DateTime             @default(now())
+  lastSeenAt  DateTime             @default(now())
   expiresAt   DateTime
   revokedAt   DateTime?
+  usage       ActiveUsageSession[]
 
   @@index([userId, revokedAt, expiresAt])
 }
@@ -111,6 +129,105 @@ model AuditLog {
 
   @@index([actorId, createdAt])
   @@index([action, createdAt])
+}
+
+model RoleHistory {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation("RoleTarget", fields: [userId], references: [id], onDelete: Cascade)
+  actorId     String?
+  actor       User?    @relation("RoleActor", fields: [actorId], references: [id], onDelete: SetNull)
+  fromRole    String?
+  toRole      String
+  reason      String?
+  createdAt   DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model RoleProgressionRule {
+  id                String   @id @default(cuid())
+  roleName          String   @unique
+  minimumActiveSecs Int
+  enabled           Boolean  @default(true)
+  priority          Int      @default(0)
+  updatedAt         DateTime @updatedAt
+  createdAt         DateTime @default(now())
+
+  @@index([enabled, priority])
+}
+
+model ActiveUsageSession {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionId       String
+  session         Session   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  startedAt       DateTime  @default(now())
+  lastHeartbeatAt DateTime  @default(now())
+  endedAt         DateTime?
+  activeSeconds   Int       @default(0)
+
+  @@unique([sessionId])
+  @@index([userId, endedAt, lastHeartbeatAt])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category  String
+  title     String
+  body      String   @db.Text
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId, readAt, createdAt])
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model StorageAsset {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storageKey   String   @unique
+  originalName String
+  mimeType     String
+  sizeBytes    Int
+  category     String   @default("user")
+  createdAt    DateTime @default(now())
+
+  @@index([userId, category, createdAt])
+}
+
+model VoiceSticker {
+  id          String   @id @default(cuid())
+  ownerId     String
+  owner       User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  title       String
+  imageKey    String
+  audioKey    String
+  imageMime   String
+  audioMime   String
+  status      String   @default("PENDING_REVIEW")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([ownerId, createdAt])
+  @@index([status, createdAt])
 }
 
 model Conversation {
@@ -148,13 +265,38 @@ model UsageEvent {
   createdAt DateTime @default(now())
 
   @@index([userId, category, createdAt])
+  @@index([category, createdAt])
 }
 
 model Feature {
-  id          String        @id @default(cuid())
-  key         String        @unique
-  name        String
-  status      FeatureStatus @default(PLANNED)
-  description String?
-  updatedAt   DateTime      @updatedAt
+  id              String        @id @default(cuid())
+  key             String        @unique
+  name            String
+  status          FeatureStatus @default(PLANNED)
+  description     String?
+  frontendReady   Boolean       @default(false)
+  backendReady    Boolean       @default(false)
+  databaseReady   Boolean       @default(false)
+  apiReady        Boolean       @default(false)
+  authReady       Boolean       @default(false)
+  permissionReady Boolean       @default(false)
+  testsReady      Boolean       @default(false)
+  securityReady   Boolean       @default(false)
+  errorHandling   Boolean       @default(false)
+  updatedAt       DateTime      @updatedAt
+}
+
+model DeveloperApproval {
+  id          String         @id @default(cuid())
+  requestedBy String
+  operation   String
+  summary     String
+  patch       Json?
+  status      ApprovalStatus @default(PENDING)
+  reviewedBy  String?
+  reviewNote  String?
+  createdAt   DateTime       @default(now())
+  reviewedAt  DateTime?
+
+  @@index([status, createdAt])
 }
