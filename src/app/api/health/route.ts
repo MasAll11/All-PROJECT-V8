@@ -11,12 +11,20 @@ export async function GET() {
     deepseek: Boolean(process.env.DEEPSEEK_API_KEY),
     github: Boolean(process.env.GITHUB_TOKEN),
   };
-  const database = Boolean(process.env.DATABASE_URL);
+  let database: "not_configured" | "configured_not_checked" | "reachable" = process.env.DATABASE_URL ? "configured_not_checked" : "not_configured";
+  if (process.env.DATABASE_URL) {
+    try {
+      const { db } = await import("@/lib/db");
+      await db.$queryRaw`SELECT 1`;
+      database = "reachable";
+    } catch { database = "configured_not_checked"; }
+  }
+  const healthy = database === "reachable";
   return NextResponse.json({
     service: "ALL×PROJECT V8",
-    status: "degraded",
-    message: "Initial application foundation is running. Configure and deploy the remaining services before production use.",
-    checks: { database: database ? "configured_not_checked" : "not_configured", aiProviders: providers },
+    status: healthy ? "operational" : "degraded",
+    message: healthy ? "Application and database are responding." : "Database is not currently confirmed reachable. Configure and verify the required services.",
+    checks: { database, aiProviders: providers },
     checkedAt: new Date().toISOString(),
-  }, { status: 200, headers: { "Cache-Control": "no-store" } });
+  }, { status: healthy ? 200 : 503, headers: { "Cache-Control": "no-store" } });
 }

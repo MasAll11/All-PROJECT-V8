@@ -1,12 +1,12 @@
 {
   "name": "all-project-v8",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@prisma/client": "^6.5.0",
+    "bcryptjs": "^3.0.2",
     "next": "^15.2.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -24,6 +25,8 @@
     "@types/node": "^22.13.10",
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
+    "eslint": "^9.22.0",
+    "eslint-config-next": "^15.2.0",
     "prisma": "^6.5.0",
     "typescript": "^5.8.2"
   }
